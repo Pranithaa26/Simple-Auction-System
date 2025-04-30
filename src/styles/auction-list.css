@@ -1,0 +1,127 @@
+.auction-list {
+    padding: 40px 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  
+  .auction-title {
+    text-align: center;
+    font-size: 2em;
+    margin-bottom: 20px;
+    color: #6b46c1;
+  }
+  
+  .auction-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+    list-style: none;
+    padding: 0;
+  }
+  
+  .auction-item {
+    background: #fff;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s;
+  }
+  
+  .auction-item:hover {
+    transform: translateY(-5px);
+  }
+  
+  .auction-details {
+    margin-bottom: 15px;
+  }
+  
+  .auction-details p {
+    margin: 5px 0;
+    color: #333;
+  }
+  
+  .auction-details p strong {
+    color: #6b46c1;
+  }
+  
+  .bid-history {
+    list-style: disc;
+    padding-left: 20px;
+    font-size: 0.9em;
+    color: #666;
+  }
+  
+  .bid-history li {
+    margin: 5px 0;
+  }
+  
+  .auction-actions {
+    display: flex;
+    gap: 10px;
+  }
+  
+  .bid-btn, .withdraw-btn {
+    padding: 10px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    width: 100%;
+    transition: background 0.3s;
+  }
+  
+  .bid-btn {
+    background: #6b46c1;
+    color: white;
+  }
+  
+  .withdraw-btn {
+    background: #dc3545;
+    color: white;
+  }
+  
+  .bid-btn:hover, .withdraw-btn:hover {
+    opacity: 0.9;
+  }
+  
+  .no-auctions {
+    text-align: center;
+    font-size: 1.2em;
+    color: #666;
+    padding: 20px;
+  }
+  .auction-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+    padding: 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  
+  .auction-card {
+    border: 2px solid #8a2be2;
+    padding: 15px;
+    border-radius: 8px;
+    background: #ffffff;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+  
+  .auction-card h3 {
+    margin: 0 0 10px;
+    color: #333;
+  }
+  
+  .auction-card p {
+    margin: 5px 0;
+    color: #666;
+  }
+  
+  .auction-card button {
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  
+  .auction-card button:hover {
+    opacity: 0.9;
+  }

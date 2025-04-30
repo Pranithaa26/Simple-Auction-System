@@ -1,34 +1,127 @@
 import React from 'react';
-import AuctionCard from './AuctionCard';
-import Categories from './Categories';
+import { formatTime } from '../utils/time';
+import './AuctionList.css';
 
-const AuctionList = ({ auctions, onBid, web3 }) => {
-  const [currentCategory, setCurrentCategory] = React.useState('all');
+const AuctionList = ({ auctions, onBid, onEndAuction, onConfirmReceipt, onInitiateDispute, onResolveDispute, walletAddress }) => {
+  console.log('AuctionList rendering with auctions:', auctions);
 
-  console.log("Rendering auctions:", auctions);
+  if (!auctions || !auctions.length) {
+    return <div className="no-auctions">No auctions available</div>;
+  }
 
-  const filteredAuctions = currentCategory === 'all'
-    ? auctions
-    : auctions.filter(auction => auction.category === currentCategory);
+  const getStatus = (auction) => {
+    console.log(`getStatus for auction ${auction.id}:`, {
+      ended: auction.ended,
+      timeLeft: auction.timeLeft,
+      itemConfirmed: auction.itemConfirmed,
+      disputed: auction.disputed,
+      bidHistory: auction.bidHistory,
+      highestBidder: auction.highestBidder,
+    });
+    if (auction.ended && !auction.itemConfirmed && !auction.disputed) {
+      return {
+        text: `Auction Ended - Winner: ${auction.highestBidder ? auction.highestBidder.slice(0, 6) + '...' + auction.highestBidder.slice(-4) : 'None'}`,
+        className: 'status-ended',
+      };
+    }
+    if (auction.ended && auction.itemConfirmed) {
+      return { text: 'Confirmed', className: 'status-confirmed' };
+    }
+    if (auction.ended && auction.disputed) {
+      return { text: 'Disputed', className: 'status-disputed' };
+    }
+    if (!auction.ended && auction.timeLeft > 0) {
+      return auction.bidHistory && auction.bidHistory.length > 0
+        ? { text: 'Bidding', className: 'status-bidding' }
+        : { text: 'Placing Start Bid', className: 'status-placing' };
+    }
+    return { text: 'Unknown', className: 'status-unknown' };
+  };
+
+  const getItemStatus = (auction) => {
+    return `Item: ${auction.itemStatus}`;
+  };
 
   return (
-    <section className="section">
-      <h2 className="section-title">Featured Auctions</h2>
-      <Categories currentCategory={currentCategory} onCategoryChange={setCurrentCategory} />
-      <div className="auction-grid">
-        {filteredAuctions.length === 0 ? (
-          <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '3rem' }}>
-            <i className="fas fa-box-open" style={{ fontSize: '3rem', color: '#6c757d', marginBottom: '1rem' }}></i>
-            <h3>No items found in this category</h3>
-            <p>Check back later or explore other categories</p>
+    <div className="auction-list">
+      {auctions.map((auction) => {
+        const isHighestBidder =
+          walletAddress &&
+          auction.highestBidder &&
+          walletAddress.toLowerCase() === auction.highestBidder.toLowerCase();
+        const canConfirmReceipt =
+          isHighestBidder && auction.ended && !auction.itemConfirmed && !auction.disputed;
+        const status = getStatus(auction);
+        console.log(`Auction ${auction.id} (${auction.name}):`, {
+          isHighestBidder,
+          canConfirmReceipt,
+          ended: auction.ended,
+          itemConfirmed: auction.itemConfirmed,
+          disputed: auction.disputed,
+          itemStatus: auction.itemStatus,
+          highestBid: auction.highestBid,
+          bidHistory: auction.bidHistory,
+          timeLeft: auction.timeLeft,
+        });
+
+        return (
+          <div key={auction.id} className="auction-item">
+            <h3>{auction.name}</h3>
+            <p>Starting Bid: {auction.startingBid} ETH</p>
+            <p>Highest Bid: {auction.highestBid} ETH</p>
+            <p>Seller: {auction.seller}</p>
+            {!auction.ended && auction.timeLeft > 0 && (
+              <p className="time-left">Time Left: {formatTime(auction.timeLeft)}</p>
+            )}
+            <p className={`status ${status.className}`}>
+              Status: {status.text}
+            </p>
+            <p className="item-status">{getItemStatus(auction)}</p>
+            {auction.itemConfirmed && <p className="funds-released">Funds released to seller.</p>}
+            <h4>Bid History:</h4>
+            {auction.bidHistory && auction.bidHistory.length > 0 ? (
+              <ul className="bid-history">
+                {auction.bidHistory.map((bid, index) => (
+                  <li key={index}>
+                    {bid.bidder.slice(0, 6)}...{bid.bidder.slice(-4)} bid {bid.amount} ETH at{' '}
+                    {new Date(bid.timestamp * 1000).toLocaleString()}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p>No bids yet</p>
+            )}
+            {!auction.ended && auction.timeLeft > 0 && (
+              <button onClick={() => onBid(auction)}>Place Bid</button>
+            )}
+            {walletAddress &&
+              walletAddress.toLowerCase() === auction.seller.toLowerCase() &&
+              !auction.ended &&
+              auction.timeLeft <= 0 && (
+                <button onClick={() => onEndAuction(auction.id)}>End Auction</button>
+              )}
+            {canConfirmReceipt && (
+              <button onClick={() => onConfirmReceipt(auction.id)}>Confirm Receipt</button>
+            )}
+            {isHighestBidder &&
+              auction.ended &&
+              !auction.itemConfirmed &&
+              !auction.disputed &&
+              auction.confirmTimeLeft > 0 && (
+                <button onClick={() => onInitiateDispute(auction.id)}>Initiate Dispute</button>
+              )}
+            {walletAddress &&
+              walletAddress.toLowerCase() === auction.seller.toLowerCase() &&
+              auction.disputed && (
+                <>
+                  <button onClick={() => onResolveDispute(auction.id, true)}>Resolve for Seller</button>
+                  <button onClick={() => onResolveDispute(auction.id, false)}>Resolve for Bidder</button>
+                </>
+              )}
           </div>
-        ) : (
-          filteredAuctions.map((auction) => (
-            <AuctionCard key={auction.id} auction={auction} onBid={onBid} web3={web3} />
-          ))
-        )}
-      </div>
-    </section>
+        );
+      })}
+    </div>
   );
 };
 

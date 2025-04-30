@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.20;
+pragma solidity ^0.8.0;
 
 contract Migrations {
     address public owner;
@@ -10,7 +10,7 @@ contract Migrations {
     }
 
     modifier restricted() {
-        require(msg.sender == owner, "Restricted to owner");
+        require(msg.sender == owner, "This function is restricted to the contract's owner");
         _;
     }
 

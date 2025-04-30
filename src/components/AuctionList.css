@@ -1,0 +1,165 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
+
+.auction-list {
+  padding: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  background-color: #ffffff;
+  font-family: 'Roboto', sans-serif;
+}
+
+.auction-item {
+  border: 1px solid #ccc;
+  padding: 15px;
+  border-radius: 8px;
+  width: 300px;
+  background-color: #f9f9f9;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s;
+}
+
+.auction-item:hover {
+  transform: translateY(-2px);
+}
+
+.auction-item h3 {
+  margin: 0 0 10px;
+  font-size: 1.3em;
+  color: #6a0dad;
+  font-weight: 500;
+}
+
+.auction-item p {
+  margin: 5px 0;
+  font-size: 0.95em;
+}
+
+.auction-item h4 {
+  margin: 10px 0 5px;
+  font-size: 1em;
+  color: #6a0dad;
+  font-weight: 500;
+}
+
+.bid-history {
+  list-style: none;
+  padding: 0;
+  max-height: 100px;
+  overflow-y: auto;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 5px;
+}
+
+.bid-history li {
+  font-size: 0.9em;
+  margin: 5px 0;
+  padding: 3px;
+}
+
+.no-auctions {
+  text-align: center;
+  padding: 20px;
+  font-size: 18px;
+  color: #6a0dad;
+  font-family: 'Roboto', sans-serif;
+}
+
+button {
+  margin: 5px;
+  padding: 8px 12px;
+  cursor: pointer;
+  background-color: #6a0dad;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.95em;
+  font-family: 'Roboto', sans-serif;
+  transition: background-color 0.2s;
+}
+
+button:hover {
+  background-color: #4b0082;
+}
+
+.time-left {
+  color: #6a0dad;
+  font-weight: 500;
+  font-size: 1em;
+  animation: fadeIn 0.5s ease-in;
+}
+
+.status {
+  display: inline-block;
+  padding: 6px 12px;
+  border-radius: 12px;
+  color: white;
+  font-weight: 500;
+  font-size: 0.9em;
+  margin: 5px 0;
+}
+
+.status-placing {
+  background-color: #6a0dad;
+  animation: pulse 2s infinite;
+}
+
+.status-bidding {
+  background-color: #8a2be2;
+  animation: pulse 2s infinite;
+}
+
+.status-ended {
+  background-color: #dc3545;
+}
+
+.status-confirmed {
+  background-color: #28a745;
+}
+
+.status-disputed {
+  background-color: #fd7e14;
+}
+
+.status-unknown {
+  background-color: #6c757d;
+}
+
+.funds-released {
+  color: #6a0dad;
+  font-style: italic;
+  font-size: 0.9em;
+}
+
+.item-status {
+  color: #6a0dad;
+  font-style: italic;
+  font-size: 0.9em;
+}
+
+.notification {
+  font-size: 1.2em;
+  font-family: 'Roboto', sans-serif;
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(106, 13, 173, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(106, 13, 173, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(106, 13, 173, 0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}

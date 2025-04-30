@@ -6,3 +6,7 @@ export const getAuctionsFromLocal = () => {
 export const saveAuctionsToLocal = (auctions) => {
   localStorage.setItem('auctions', JSON.stringify(auctions));
 };
+
+export const clearAuctionsFromLocal = () => {
+  localStorage.removeItem('auctions');
+};

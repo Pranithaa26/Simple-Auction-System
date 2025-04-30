@@ -1,0 +1,52 @@
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.my-auctions {
+  background: #ffffff;
+  padding: 20px;
+  border-radius: 5px;
+  width: 400px;
+}
+
+.my-auctions h2 {
+  color: #6a0dad;
+  margin-bottom: 10px;
+}
+
+.my-auctions ul {
+  list-style: none;
+  padding: 0;
+}
+
+.my-auctions li {
+  border-bottom: 1px solid #ccc;
+  padding: 10px 0;
+}
+
+.my-auctions p {
+  margin: 5px 0;
+}
+
+.my-auctions button {
+  padding: 8px 12px;
+  cursor: pointer;
+  background-color: #6a0dad;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  margin-top: 10px;
+}
+
+.my-auctions button:hover {
+  background-color: #4b0082;
+}

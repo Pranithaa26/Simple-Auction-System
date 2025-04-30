@@ -3,8 +3,8 @@ module.exports = {
     development: {
       host: "127.0.0.1",
       port: 8545,
-      network_id: "1337",
-      gas: 12000000,
+      network_id: "1337", // Explicitly set to 1337
+      gas: 20000000,
       gasPrice: 20000000000
     }
   },
@@ -15,12 +15,10 @@ module.exports = {
         optimizer: {
           enabled: true,
           runs: 200
-        }
+        },
+        evmVersion: "london"
       }
     }
   },
-  plugins: ["truffle-plugin-verify"],
-  mocha: {
-    timeout: 100000
-  }
+  db: { enabled: false }
 };
