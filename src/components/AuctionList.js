@@ -5,7 +5,6 @@ import Categories from './Categories';
 const AuctionList = ({ auctions, onBid, web3 }) => {
   const [currentCategory, setCurrentCategory] = React.useState('all');
 
-  // Add console.log here to access the auctions prop
   console.log("Rendering auctions:", auctions);
 
   const filteredAuctions = currentCategory === 'all'

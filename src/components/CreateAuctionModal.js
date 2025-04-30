@@ -5,19 +5,17 @@ const CreateAuctionModal = ({ onClose, onCreate, web3, walletAddress }) => {
   const [image, setImage] = useState(null);
   const [startingBid, setStartingBid] = useState('');
   const [timeInput, setTimeInput] = useState(''); // Single input for time (e.g., "1h 30m 45s")
+  const [preview, setPreview] = useState(null); // Image preview state
 
   // Function to parse time input (e.g., "1h 30m 45s" or "2h")
   const parseTime = (input) => {
     if (!input) return 0;
-    let totalSeconds = 0;
-    const parts = input.toLowerCase().match(/(\d+(?:[.,]\d+)?)[hms]/g) || [];
-    parts.forEach(part => {
-      const value = parseFloat(part);
-      if (part.includes('h')) totalSeconds += value * 3600;
-      if (part.includes('m')) totalSeconds += value * 60;
-      if (part.includes('s')) totalSeconds += value;
-    });
-    return Math.max(0, totalSeconds); // Ensure non-negative
+    const regex = /(?:(\d+(?:[.,]\d+)?)h)?\s*(?:(\d+(?:[.,]\d+)?)m)?\s*(?:(\d+(?:[.,]\d+)?)s)?/i;
+    const match = input.match(regex);
+    if (!match) return 0;
+
+    const [ , h, m, s ] = match.map(x => parseFloat(x) || 0);
+    return Math.floor(h * 3600 + m * 60 + s);
   };
 
   const handleSubmit = async (e) => {
@@ -36,8 +34,16 @@ const CreateAuctionModal = ({ onClose, onCreate, web3, walletAddress }) => {
       return;
     }
     const imageUrl = URL.createObjectURL(image); // Temporary; replace with IPFS in production
-    const auctionData = { name, startingBid, image: imageUrl, timeInput }; // Pass timeInput for reference
+    const auctionData = { name, startingBid, image: imageUrl, timeInput };
     await onCreate(auctionData);
+    
+    // Reset form after submission
+    setName('');
+    setImage(null);
+    setStartingBid('');
+    setTimeInput('');
+    setPreview(null);
+
     onClose();
   };
 
@@ -55,6 +61,7 @@ const CreateAuctionModal = ({ onClose, onCreate, web3, walletAddress }) => {
             value={name}
             onChange={(e) => setName(e.target.value)}
             style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid #ddd', fontSize: '1rem' }}
+            aria-label="Auction Item Name"
           />
           <div>
             <label htmlFor="image-upload" style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--gray)' }}>Upload Item Image</label>
@@ -62,9 +69,15 @@ const CreateAuctionModal = ({ onClose, onCreate, web3, walletAddress }) => {
               id="image-upload"
               type="file"
               accept="image/*"
-              onChange={(e) => setImage(e.target.files[0])}
+              onChange={(e) => {
+                const file = e.target.files[0];
+                setImage(file);
+                setPreview(URL.createObjectURL(file)); // Set image preview
+              }}
               style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid #ddd', fontSize: '1rem', width: '100%' }}
+              aria-label="Upload Auction Item Image"
             />
+            {preview && <img src={preview} alt="Preview" style={{ maxWidth: '100%', borderRadius: '8px', marginTop: '1rem' }} />}
           </div>
           <input
             type="number"
@@ -74,6 +87,7 @@ const CreateAuctionModal = ({ onClose, onCreate, web3, walletAddress }) => {
             step="0.01"
             min="0"
             style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid #ddd', fontSize: '1rem' }}
+            aria-label="Starting Bid in ETH"
           />
           <div>
             <label htmlFor="time-input" style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--gray)' }}>Duration (e.g., 1h 30m 45s)</label>
@@ -84,6 +98,7 @@ const CreateAuctionModal = ({ onClose, onCreate, web3, walletAddress }) => {
               value={timeInput}
               onChange={(e) => setTimeInput(e.target.value)}
               style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid #ddd', fontSize: '1rem', width: '100%' }}
+              aria-label="Auction Duration (e.g., 1h 30m)"
             />
           </div>
           <button

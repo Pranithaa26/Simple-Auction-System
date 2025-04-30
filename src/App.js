@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Header from './components/Header';
 import AuctionList from './components/AuctionList';
 import Hero from './components/Hero';
@@ -18,229 +18,298 @@ function App() {
   const [walletConnected, setWalletConnected] = useState(false);
   const [walletAddress, setWalletAddress] = useState(null);
   const [web3, setWeb3] = useState(null);
-  const factoryAddress = '0xfb70fa712781426f0314AA16B424895c652b74a6'; // Use the correct address from your last deployment  
   const [factoryContract, setFactoryContract] = useState(null);
+  const factoryAddress = 'NEW_ADDRESS'; // Replace with new address from migration
 
-  useEffect(() => {
-    const initWeb3 = async () => {
-      if (window.ethereum) {
-        const web3Instance = new Web3(window.ethereum);
-        setWeb3(web3Instance);
-        try {
-          await window.ethereum.request({ method: 'eth_requestAccounts' });
-          const accounts = await web3Instance.eth.getAccounts();
-          setWalletAddress(accounts[0]);
-          setWalletConnected(true);
-          const factory = new web3Instance.eth.Contract(auctionFactoryABI.abi, factoryAddress);
-          setFactoryContract(factory);
-          console.log("Factory initialized:", factory);
-          console.log("Calling getAllAuctions...");
-          let auctionAddresses = [];
-          try {
-            auctionAddresses = await factory.methods.getAllAuctions().call();
-            console.log("Raw auction addresses:", auctionAddresses);
-          } catch (err) {
-            console.error("Failed to fetch auctions:", err.message);
-            auctionAddresses = [];
-          }
-          for (const address of auctionAddresses) {
-            await addAuctionFromEvent(address);
-          }
-          const pastEvents = await factory.getPastEvents('AuctionCreated', { fromBlock: 0, toBlock: 'latest' });
-          console.log("Past AuctionCreated events:", pastEvents);
-          for (const event of pastEvents) {
-            const auctionAddress = event.returnValues.auctionAddress;
-            await addAuctionFromEvent(auctionAddress);
-          }
-          web3Instance.eth.subscribe('logs', {
-            address: factoryAddress,
-            topics: [web3Instance.utils.sha3('AuctionCreated(address,string,address)')]
-          }, (error, result) => {
-            if (error) {
-              console.error("Log subscription error:", error);
-              return;
-            }
-            console.log("Log event:", result);
-            const eventAbi = auctionFactoryABI.abi.find(e => e.name === 'AuctionCreated');
-            const decodedEvent = web3Instance.eth.abi.decodeLog(
-              eventAbi.inputs,
-              result.data,
-              result.topics.slice(1)
-            );
-            const auctionAddress = decodedEvent.auctionAddress;
-            addAuctionFromEvent(auctionAddress);
-          });
-        } catch (error) {
-          console.error("Connection failed:", error.message, error.stack);
-        }
-      }
-    };
-    initWeb3();
-    const interval = setInterval(() => {
-      const now = Math.floor(Date.now() / 1000);
-      const updatedAuctions = auctions.map((auction) => {
-        if (auction.endTime) {
-          const newTimeLeft = Math.max(0, auction.endTime - now);
-          return { ...auction, timeLeft: newTimeLeft };
-        }
-        return auction;
-      });
-      if (JSON.stringify(updatedAuctions) !== JSON.stringify(auctions)) {
-        setAuctions(updatedAuctions);
-        saveAuctionsToLocal(updatedAuctions);
-      }
-    }, 1000);
-    const storedAuctions = getAuctionsFromLocal();
-    if (storedAuctions.length > 0) setAuctions(storedAuctions);
-    return () => clearInterval(interval);
-  }, []);
-  
-  const addAuctionFromEvent = async (auctionAddress) => {
-    if (!web3 || !factoryContract) return;
+  const isListenerSetup = useRef(false);
+
+  const addAuctionFromEvent = useCallback(async (address, web3Instance = web3) => {
     try {
-      console.log("Adding auction for address:", auctionAddress);
-      const auctionContract = new web3.eth.Contract(auctionABI.abi, auctionAddress);
-      const itemName = await auctionContract.methods.itemName().call();
-      const startPrice = await auctionContract.methods.startPrice().call();
-      const endTime = await auctionContract.methods.endTime().call();
-      const highestBid = await auctionContract.methods.highestBid().call();
-      const highestBidder = await auctionContract.methods.highestBidder().call();
-      const creator = await auctionContract.methods.auctionCreator().call();
-      console.log("Auction data fetched:", { itemName, startPrice, endTime, highestBid, highestBidder, creator });
+      const auction = new web3Instance.eth.Contract(auctionABI.abi, address);
+      const [name, startingBid, endTime, seller, highestBid, highestBidder] = await Promise.all([
+        auction.methods.itemName().call(),
+        auction.methods.startingBid().call(),
+        auction.methods.endTime().call(),
+        auction.methods.auctionCreator().call(), // Updated to match contract
+        auction.methods.highestBid().call(),
+        auction.methods.highestBidder().call()
+      ]);
+      const now = Math.floor(Date.now() / 1000);
+      const timeLeft = Math.max(0, endTime - now);
       const newAuction = {
-        id: auctionAddress,
-        title: itemName || "Dynamic Name",
-        image: `https://randomuser.me/api/portraits/men/${Math.floor(Math.random() * 100)}.jpg`,
-        currentBid: web3.utils.fromWei(highestBid || startPrice, 'ether') + ' ETH',
-        bids: highestBidder !== '0x0000000000000000000000000000000000000000' ? 1 : 0,
-        timeLeft: Math.max(0, endTime - Math.floor(Date.now() / 1000)),
+        id: address,
+        name,
+        startingBid: web3Instance.utils.fromWei(startingBid, 'ether'),
         endTime: parseInt(endTime),
+        timeLeft,
+        seller,
+        highestBid: web3Instance.utils.fromWei(highestBid, 'ether'),
+        highestBidder,
         category: 'art',
-        creator: creator,
-        avatar: `https://randomuser.me/api/portraits/men/${Math.floor(Math.random() * 100)}.jpg`,
+        image: '' // Placeholder; update with IPFS URL in production
       };
-      setAuctions((prev) => {
-        const updated = [...prev.filter(a => a.id !== auctionAddress), newAuction];
-        console.log("Updated auctions state:", updated);
+
+      setAuctions(prev => {
+        if (prev.some(a => a.id === address)) return prev;
+        const updated = [...prev, newAuction];
         saveAuctionsToLocal(updated);
+        console.log("Updated auctions state:", updated);
         return updated;
       });
-    } catch (error) {
-      console.error("Failed to add auction from event:", error);
+    } catch (err) {
+      console.error("Error loading auction:", address, {
+        message: err.message,
+        code: err.code,
+        data: err.data,
+        stack: err.stack
+      });
     }
-  };
+  }, [web3]);
 
-  const addAuction = async (auctionData) => {
-    if (!walletConnected || !factoryContract) {
-      alert("Please connect your wallet and ensure contract is loaded.");
+  useEffect(() => {
+    const stored = getAuctionsFromLocal();
+    if (stored.length) {
+      console.log("Loaded stored auctions:", stored);
+      setAuctions(stored);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isListenerSetup.current && walletConnected && web3 && factoryContract) {
+      console.log("Setting up event listener for AuctionCreated...");
+      factoryContract.events.AuctionCreated({ fromBlock: 'latest' })
+        .on('data', async event => {
+          console.log("New auction created event:", event);
+          const auctionAddress = event.returnValues.auctionAddress; // Updated to match event
+          await addAuctionFromEvent(auctionAddress, web3);
+        })
+        .on('error', err => {
+          console.error("Event listener error:", {
+            message: err.message,
+            code: err.code,
+            data: err.data,
+            stack: err.stack
+          });
+        });
+      isListenerSetup.current = true;
+    }
+  }, [walletConnected, web3, factoryContract, addAuctionFromEvent]);
+
+  const fetchAuctionData = async (web3Instance = web3, factory = factoryContract, caller = walletAddress) => {
+    if (!web3Instance || !factory || !caller) {
+      console.warn("Web3, factory contract, or caller not initialized.");
       return;
     }
     try {
-      const { name, startingBid, timeInput } = auctionData;
-      const timeLeft = parseTime(timeInput);
-      if (!timeLeft || timeLeft <= 0) {
-        alert("Please enter a valid duration (e.g., '1h 30m' or '120s').");
-        return;
+      console.log("Fetching auction data from factory at:", factory._address);
+      console.log("Caller address:", caller);
+      const chainId = await web3Instance.eth.getChainId();
+      console.log("Current chain ID:", chainId);
+      const addresses = await factory.methods.getAllAuctions().call({ from: caller });
+      console.log("Fetched auction addresses:", addresses);
+      setAuctions([]);
+      if (Array.isArray(addresses) && addresses.length > 0) {
+        for (const addr of addresses) {
+          await addAuctionFromEvent(addr, web3Instance);
+        }
+      } else {
+        console.log("No auctions found or getAllAuctions returned invalid data.");
       }
-      const durationMinutes = Math.ceil(timeLeft / 60);
-      console.log("Creating auction with:", {
-        name,
-        startingBid,
-        timeInput,
-        durationMinutes,
-        walletAddress,
-        factoryAddress
+    } catch (err) {
+      console.error("Error fetching auctions:", {
+        message: err.message,
+        code: err.code,
+        data: err.data,
+        stack: err.stack
       });
-      const gasPrice = await web3.eth.getGasPrice();
-      console.log("Gas Price:", web3.utils.fromWei(gasPrice, 'gwei'), "Gwei");
-      const tx = await factoryContract.methods.createAuction(name, web3.utils.toWei(startingBid, 'ether'), durationMinutes)
-        .send({ from: walletAddress, gas: 700000, gasPrice: gasPrice });
-      console.log("Transaction successful:", tx);
-      setShowModal(false);
-    } catch (error) {
-      console.error("Auction creation failed:", {
-        message: error.message,
-        code: error.code,
-        data: error.data,
-        stack: error.stack,
-        reason: error.reason,
-        transactionHash: error.transactionHash
-      });
-      alert("Failed to create auction. Check console for details.");
     }
   };
-  const parseTime = (input) => {
+
+  const parseTime = input => {
     if (!input) return 0;
-    let totalSeconds = 0;
-    const parts = input.toLowerCase().match(/(\d+(?:[.,]\d+)?)[hms]/g) || [];
-    parts.forEach(part => {
-      const value = parseFloat(part);
-      if (part.includes('h')) totalSeconds += value * 3600;
-      if (part.includes('m')) totalSeconds += value * 60;
-      if (part.includes('s')) totalSeconds += value;
-    });
-    return Math.max(0, totalSeconds);
+    const regex = /(?:(\d+(?:[.,]\d+)?)h)?\s*(?:(\d+(?:[.,]\d+)?)m)?\s*(?:(\d+(?:[.,]\d+)?)s)?/i;
+    const match = input.match(regex);
+    if (!match) return 0;
+    const [ , h, m, s ] = match.map(x => parseFloat(x) || 0);
+    return Math.floor(h * 3600 + m * 60 + s);
+  };
+
+  const addAuction = async ({ name, startingBid, image, timeInput }) => {
+    if (!walletConnected || !factoryContract) {
+      alert("Connect wallet first.");
+      return;
+    }
+    try {
+      console.log("Creating auction with:", { name, startingBid, image, timeInput });
+      const chainId = await web3.eth.getChainId();
+      console.log("Current chain ID:", chainId);
+      if (chainId !== 1337) {
+        alert("Please switch MetaMask to the Ganache network (Chain ID: 1337).");
+        return;
+      }
+      const duration = parseTime(timeInput);
+      if (!duration) {
+        alert("Enter valid duration (e.g., 1h 30m).");
+        return;
+      }
+      const gasPrice = await web3.eth.getGasPrice();
+      console.log("Gas Price:", web3.utils.fromWei(gasPrice, 'gwei'), "Gwei");
+      const startingBidWei = web3.utils.toWei(startingBid.toString(), 'ether');
+      console.log("Starting bid (Wei):", startingBidWei);
+      console.log("Image URL (temporary):", image);
+      const gasEstimate = await factoryContract.methods.createAuction(name, startingBidWei, duration).estimateGas({ from: walletAddress });
+      console.log("Estimated gas:", gasEstimate);
+      const tx = await factoryContract.methods.createAuction(name, startingBidWei, duration)
+        .send({ from: walletAddress, gas: Math.floor(gasEstimate * 2), gasPrice });
+      console.log("Transaction successful:", tx);
+      await fetchAuctionData(web3, factoryContract, walletAddress);
+    } catch (err) {
+      console.error("Auction creation failed:", {
+        message: err.message,
+        code: err.code,
+        data: err.data,
+        stack: err.stack
+      });
+      alert(`Failed to create auction: ${err.message}. Check console.`);
+    }
   };
 
   const handleBidUpdate = async (auctionId, bidAmount) => {
     if (!walletConnected) {
-      alert("Please connect your wallet to place a bid.");
+      alert("Connect wallet to bid.");
       return;
     }
     try {
-      const auctionContract = new web3.eth.Contract(auctionABI.abi, auctionId);
-      const currentHighestBid = await auctionContract.methods.highestBid().call();
-      const bidValue = web3.utils.toWei(bidAmount, 'ether');
-      if (parseFloat(bidValue) <= parseFloat(currentHighestBid)) {
-        alert("Your bid must be higher than the current highest bid.");
+      console.log("Placing bid on auction:", auctionId, "with amount:", bidAmount);
+      const auction = new web3.eth.Contract(auctionABI.abi, auctionId);
+      const current = await auction.methods.highestBid().call();
+      const value = web3.utils.toWei(bidAmount.toString(), 'ether');
+      console.log("Current highest bid (Wei):", current, "New bid (Wei):", value);
+      if (parseFloat(value) <= parseFloat(current)) {
+        alert("Bid must be higher than current.");
         return;
       }
-      await auctionContract.methods.placeBid()
-        .send({ from: walletAddress, value: bidValue });
+      const gasPrice = await web3.eth.getGasPrice();
+      const gasEstimate = await auction.methods.placeBid().estimateGas({ from: walletAddress, value });
+      const tx = await auction.methods.placeBid().send({ from: walletAddress, value, gas: Math.floor(gasEstimate * 2), gasPrice });
+      console.log("Bid transaction successful:", tx);
       await addAuctionFromEvent(auctionId);
-    } catch (error) {
-      console.error("Bid placement failed:", error);
-      alert("Failed to place bid. Check console for details.");
+    } catch (err) {
+      console.error("Bid failed:", {
+        message: err.message,
+        code: err.code,
+        data: err.data,
+        stack: err.stack
+      });
+      alert("Failed to bid. See console.");
     }
   };
 
   const connectWallet = async () => {
     if (!window.ethereum) {
-      alert("MetaMask is not installed. Please install it to connect your wallet.");
+      console.error("MetaMask not detected. Please install MetaMask or check if it's enabled.");
+      alert("MetaMask not detected. Please install MetaMask.");
       return;
     }
     try {
-      await window.ethereum.request({ method: 'eth_requestAccounts' });
-      const accounts = await web3.eth.getAccounts();
-      if (accounts.length > 0) {
-        setWalletAddress(accounts[0]);
-        setWalletConnected(true);
-        alert(`Successfully connected wallet: ${accounts[0].slice(0, 6)}...${accounts[0].slice(-4)}`);
-      } else {
-        alert("No accounts found. Please unlock MetaMask.");
+      console.log("Attempting to connect wallet...");
+      const web3Instance = new Web3(window.ethereum);
+      const chainId = await web3Instance.eth.getChainId();
+      console.log("Detected chain ID:", chainId);
+      if (chainId !== 1337) {
+        alert("Please switch MetaMask to the Ganache network (Chain ID: 1337).");
+        try {
+          await window.ethereum.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: '0x539' }],
+          });
+        } catch (switchError) {
+          if (switchError.code === 4902) {
+            await window.ethereum.request({
+              method: 'wallet_addEthereumChain',
+              params: [{
+                chainId: '0x539',
+                chainName: 'Ganache',
+                rpcUrls: ['http://127.0.0.1:8545'],
+                nativeCurrency: { name: 'Ganache ETH', symbol: 'ETH', decimals: 18 },
+              }],
+            });
+          } else {
+            throw switchError;
+          }
+        }
+        return;
       }
-    } catch (error) {
-      console.error("Error connecting to MetaMask:", error);
-      if (error.code === 4001) {
-        alert("Wallet connection was rejected by the user.");
-      } else {
-        alert("Failed to connect wallet. Check MetaMask and try again.");
+
+      console.log("Requesting accounts from MetaMask...");
+      const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+      console.log("Received accounts:", accounts);
+
+      setWeb3(web3Instance);
+      setWalletAddress(accounts[0]);
+      setWalletConnected(true);
+
+      const factory = new web3Instance.eth.Contract(auctionFactoryABI.abi, factoryAddress);
+      console.log("Factory initialized at:", factoryAddress);
+      setFactoryContract(factory);
+
+      const stored = getAuctionsFromLocal();
+      if (stored.length) {
+        console.log("Loaded stored auctions:", stored);
+        setAuctions(stored);
       }
+
+      try {
+        console.log("Fetching auctions...");
+        const addresses = await factory.methods.getAllAuctions().call({ from: accounts[0] });
+        console.log("Fetched auction addresses:", addresses);
+        setAuctions([]);
+        if (Array.isArray(addresses) && addresses.length > 0) {
+          for (const addr of addresses) {
+            await addAuctionFromEvent(addr, web3Instance);
+          }
+        } else {
+          console.log("No auctions found or getAllAuctions returned invalid data.");
+        }
+      } catch (err) {
+        console.error("Failed to fetch auctions, continuing with connection:", {
+          message: err.message,
+          code: err.code,
+          data: err.data,
+          stack: err.stack
+        });
+      }
+    } catch (err) {
+      console.error("Wallet connection failed:", {
+        message: err.message,
+        code: err.code,
+        data: err.data,
+        stack: err.stack
+      });
+      alert(`Failed to connect wallet: ${err.message}. Check console for details.`);
     }
   };
 
   return (
     <>
-      <Header onCreateClick={() => setShowModal(true)} onWalletConnect={connectWallet} walletConnected={walletConnected} />
+      <Header
+        onWalletConnect={connectWallet}
+        onCreateClick={() => setShowModal(true)}
+        walletConnected={walletConnected}
+        walletAddress={walletAddress}
+      />
       <Hero />
       <AuctionList auctions={auctions} onBid={handleBidUpdate} web3={web3} />
       {showModal && (
-        <CreateAuctionModal
-          onClose={() => setShowModal(false)}
-          onCreate={addAuction}
-          web3={web3}
-          walletAddress={walletAddress}
-        />
+        <>
+          <div className="modal-backdrop" onClick={() => setShowModal(false)} />
+          <CreateAuctionModal
+            onClose={() => setShowModal(false)}
+            onCreate={addAuction}
+            web3={web3}
+            walletAddress={walletAddress}
+          />
+        </>
       )}
       <HowItWorks />
       <Newsletter />

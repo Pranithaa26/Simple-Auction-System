@@ -3,12 +3,14 @@ module.exports = {
     development: {
       host: "127.0.0.1",
       port: 8545,
-      network_id: "*"
+      network_id: "1337",
+      gas: 12000000,
+      gasPrice: 20000000000
     }
   },
   compilers: {
     solc: {
-      version: "0.8.20", // Use 0.8.20 for OpenZeppelin 5.x
+      version: "0.8.20",
       settings: {
         optimizer: {
           enabled: true,
@@ -17,10 +19,8 @@ module.exports = {
       }
     }
   },
-  contracts_build_directory: "./build/contracts",
-  paths: {
-    sources: "./contracts",
-    tests: "./test",
-    migrations: "./migrations"
+  plugins: ["truffle-plugin-verify"],
+  mocha: {
+    timeout: 100000
   }
 };
